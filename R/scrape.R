@@ -14,15 +14,15 @@ hood_reader <- function(url, sheet){
   list(hoods, data_types)
 }
 
-hoods_map <- hood_reader(url,3)
-
-
-hoods_map[[1]] %>% 
-  ggplot(aes(y=fct_infreq(`What is the first part of your current postcode? If you don't have one, or it changes quite often, either leave it blank or choose one that you spend some time in.`)))+
-  geom_bar()
-
-question_cleaner <- function(data){
-  data %>% rename(
+question_cleaner <- function(input){
+  
+  data <- input[[1]]
+  hood_names <- unique(str_extract(names(data[52:546]), "^.+[^...\\d+]"))
+  
+  #Clean up, rename columns and select the most relevant ones for analysis.
+  #I don't think this is destructive
+  
+  data <- data %>% rename(
     'id'= 1,
     'sub'= 2,
     'sub_time'= 3,
@@ -47,26 +47,12 @@ question_cleaner <- function(data){
                                 str_detect(postcode, "\\d+") ~ paste("S",str_extract(postcode, "\\d+"), sep = ""),
                                 str_detect(postcode, "^[^\\d]+$") ~ NA,
                                 TRUE ~ postcode))
-
+  
+  #This cleans up the multi-select boxes. I think these will need to be split out into separate data frames for plotting
+  data$community_feels <- map(data$community_feels, \(x) as.logical(toupper(str_split(str_extract(x, "[^\\[].*[^\\]]"), ",")[[1]])))
+  data$hood_id_full <- map(data$hood_id_full, \(x) as.numeric(str_split(str_extract(x, "[^\\[].*[^\\]]"), ",")[[1]]))
+  data$community_labels <- map(data$community_feels, \(x) names(input[[2]][34:49])[x])
+  data$hood_id_full <- map(data$hood_id_full, \(x) if(any(!is.na(x))){set_names(x, hood_names)})
+  
+  data
 }
-
-data2 <- question_cleaner(data)
-
-
-
-data2 %>% 
-  ggplot(aes(x=fct_infreq(postcode), fill = sub))+
-  geom_bar(position = 'dodge')+
-  coord_flip()
-
-data2 %>% 
-  ggplot(aes(x = age, fill = sub))+
-  geom_bar()
-
-data2$community_feels
-
-
-
-
-
-
